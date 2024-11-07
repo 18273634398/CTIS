@@ -1,5 +1,6 @@
 import heapq
 import time
+import pymysql
 
 
 # 定义景点类
@@ -49,130 +50,88 @@ class CampusMap:
             return spot.name
 
 
-    # Dijkstra算法求最短路径
     def shortest_path(self, start, end):
+        # 首先检查输入的起点和终点是否存在于路径图中
         if start not in self.paths or end not in self.paths:
-            return "无效的景点代号"
+            return "无效的景点代号"  # 如果起点或终点不在图中，返回错误信息
 
-        # 初始化距离表
+        # 初始化距离表，每个景点的初始距离都设置为无穷大（表示不可达）
         distances = {spot: float('inf') for spot in self.spots}
-        distances[start] = 0
+        distances[start] = 0  # 起点的距离为0，因为从自己到自己距离为0
+
+        # 创建一个优先队列，初始时将起点放入队列，优先级为0（即距离）
         priority_queue = [(0, start)]
+
+        # 初始化前驱节点表，用于存储每个节点的最优前驱节点
         previous_nodes = {spot: None for spot in self.spots}
 
+        # 当优先队列不为空时，执行循环
         while priority_queue:
+            # 从优先队列中取出当前距离最小的节点
             current_distance, current_spot = heapq.heappop(priority_queue)
 
+            # 如果当前节点的距离大于已经记录的距离，说明它不是最优路径，跳过
             if current_distance > distances[current_spot]:
                 continue
 
+            # 遍历当前节点的邻居节点
             for neighbor, weight in self.paths[current_spot]:
+                # 计算从当前节点到邻居节点的距离
                 distance = current_distance + weight
 
+                # 如果新的距离比之前记录的距离小，更新距离表和前驱节点表
                 if distance < distances[neighbor]:
-                    distances[neighbor] = distance
-                    previous_nodes[neighbor] = current_spot
+                    distances[neighbor] = distance  # 更新距离
+                    previous_nodes[neighbor] = current_spot  # 记录前驱节点
+                    # 将邻居节点加入优先队列中，按照新的距离排序
                     heapq.heappush(priority_queue, (distance, neighbor))
 
-        # 构建路径
+        # 构建从终点到起点的路径
         path = []
         current = end
-        while current is not None:
+        while current is not None:  # 从终点回溯到起点
             path.append(current)
             current = previous_nodes[current]
-        path = path[::-1]  # 逆序
+        path = path[::-1]  # 将路径反转为从起点到终点
 
+        # 如果终点距离仍然是无穷大，说明没有可达路径
         if distances[end] == float('inf'):
             return "无可达路径"
+
+        # 返回最短路径和对应的距离
         return path, distances[end]
 
-def init():
-    campus = CampusMap()
+
+
+
+def init(db,campus):
     # 添加景点
-    campus.add_spot('Dx', '西门', '学校的西门')
-    campus.add_spot('Btsg', '图书馆', '藏书丰富的图书馆')
-    campus.add_spot('Bxj', '湘江楼', '辅助的教学场所，5层以上为教师办公室专用')
-    campus.add_spot('Bsy', '实验楼', '主要实验室分布场所，共6层')
-    campus.add_spot('Ccy', '萃雅食堂', '主要的就餐场所')
-    campus.add_spot('Pcy', '萃雅园区', '学生宿舍楼群')
-    campus.add_spot('Pxd', '贤德园区', '学生宿舍楼群')
-    campus.add_spot('Brx', '日新楼', '主要的教学场所')
-    campus.add_spot('Bzc', '至诚楼', '主要的教学场所')
-    campus.add_spot('Blz', '乐知楼', '主要的教学场所')
-    campus.add_spot('B2', '二办公楼', '学校行政部门办公场所')
-    campus.add_spot('Q', '两桥', '启真桥与楚枫桥，作为连接湖南工商大学南校区北区与南区的通道')
-    campus.add_spot('By', '阳光服务大厅', '学校提供的为学生服务的中心')
-    campus.add_spot('Db', '北门', '学校最靠近地铁的地方，一般在新生季将在此处设置迎新广场')
-    campus.add_spot('Dd', '东门', '学校东门，外面有很多小吃、饭店')
-    campus.add_spot('Plhl', '老虎岭', '学校景点之一')
-    campus.add_spot('Pxj', '咸嘉园区', '学生宿舍楼群')
-    campus.add_spot('Pln', '岭南园区', '学生宿舍楼群')
-    campus.add_spot('Ddn', '东南门', '学校东南门')
-
-    # 添加路径
-    campus.add_path('Ddn','Pln',0.5)
-    campus.add_path('Pln','Pxj',3)
-    campus.add_path('Pln','Plhl',1.5)
-    campus.add_path('Pxj','Plhl',2)
-    campus.add_path('Pxj','Dd',0.5)
-    campus.add_path('Dd','Blz',1)
-    campus.add_path('Blz','Db',1)
-    campus.add_path('Blz','B2',1)
-    campus.add_path('B2','Db',0.5)
-    campus.add_path('B2','By',0.7)
-    campus.add_path('Blz','By',1.5)
-    campus.add_path('B2','Q',1)
-    campus.add_path('By','Q',1)
-    campus.add_path('Q','Bzc',0.5)
-    campus.add_path('Q','Bxj',0.5)
-    campus.add_path('Bxj','Dx',0.5)
-    campus.add_path('Bxj','Bsy',3)
-    campus.add_path('Bxj','Ccy',3)
-    campus.add_path('Bxj','Pcy',3)
-    campus.add_path('Bsy','Ccy',1)
-    campus.add_path('Pcy','Ccy',1)
-    campus.add_path('Pcy','Pxd',7)
-    campus.add_path('Pcy','Brx',0.5)
-    campus.add_path('Brx','Bxj',1.2)
-    campus.add_path('Btsg','Bxj',0.9)
-    campus.add_path('Bzc','Bxj',0.8)
-    campus.add_path('Bzc','Btsg',0.5)
-    campus.add_path('Brx','Btsg',0.5)
-    campus.add_path('Brx','Pxd',4)
-
-    return campus
-
+    # 连接数据库
+    cursor = db.cursor()
+    # 查询景点信息
+    sql = "SELECT code, name, description FROM ctis_info"
+    cursor.execute(sql)
+    results = cursor.fetchall()
+    for row in results:
+        code, name, description = row
+        campus.add_spot(code, name, description)
+    # 查询路径信息
+    sql = "SELECT code_from, code_to, distance FROM ctis_distance"
+    cursor.execute(sql)
+    results = cursor.fetchall()
+    for row in results:
+        code1, code2, length = row
+        campus.add_path(code1, code2, length)
 
 
 
 # 主程序启动
-campus = init()
-print("湖南工商大学南校区景点一览表\n"
-      "--------------------------\n"
-      "1，东南门\n"
-      "2.岭南园区\n"
-      "3.老虎岭\n"
-      "4.贤德园区\n"
-      "5.东门\n"
-      "6.乐知楼\n"
-      "7.阳光服务大厅\n"
-      "8.北门\n"
-      "9.二办公室\n"
-      "10.两桥\n"
-      "11.至诚楼\n"
-      "12.湘江楼\n"
-      "13.图书馆\n"
-      "14.西门\n"
-      "15.日新楼\n"
-      "16.萃雅园区\n"
-      "17.萃雅食堂\n"
-      "18.实验楼\n"
-      "19.贤德园区")
-print("--------------------------\n8秒后进入主程序")
-time.sleep(8)
+db = pymysql.connect(host='localhost', user='root', password='lushangwu;2004', db='app', charset='utf8')
+campus = CampusMap()
+init(db,campus)
 while True:
     print("\n\n\n=====================")
-    print("欢迎使用校园导游系统CTIS\n1.查询最短路径\n2.查询景点信息\n3.退出系统\n输入数字编号进入功能")
+    print("欢迎使用校园导游系统CTIS\n1.查询最短路径\n2.查询景点信息\n3.添加景点信息\n4.退出系统\n输入数字编号进入功能")
     try:
         function = int(input("--------------------------\n请输入功能:"))
     except ValueError:
@@ -195,16 +154,53 @@ while True:
                     print(f"{campus.query_spot_name(path[i])} -> ",end='')
                 else:
                     print(f"【终点】{campus.query_spot_name(path[i])}")
-            time.sleep(5)
+            time.sleep(1)
         else:
-            print("输入景点名不再数据库中，程序重启，请重试")
-            time.sleep(5)
+            print("输入景点名不在数据库中，程序重启，请重试")
     elif function == 2:
         place = input("请输入景点名：")
         placeID = campus.query_spot_id(place)
         print(campus.query_spot_info(placeID))
-        time.sleep(5)
+        time.sleep(1)
     elif function == 3:
+        code = input("请输入景点代号：")
+        name = input("请输入景点名称：")
+        description = input("请输入景点简介：")
+        campus.add_spot(code, name, description)
+        # 写入数据库
+        cursor = db.cursor()
+        sql = "insert into ctis_info ( code, name, description ) values (%s, %s, %s)"
+        cursor.execute(sql, (code, name, description))
+        print(f"景点{name}({code})添加成功")
+        print("是否需要添加路径？(y/n)")
+        path = input()
+        if path == 'y' or path == 'Y':
+            while True:
+                code1 = input("请输入起点代号：")
+                code2 = input("请输入终点代号：")
+                length = eval(input("请输入路径长度："))
+                campus.add_path(code1, code2, length)
+                # 写入数据库
+                cursor = db.cursor()
+                sql = "insert into ctis_distance (code_from, code_to, distance) values(%s, %s, %s)"
+                cursor.execute(sql, (code1, code2, length))
+                sql = "insert into ctis_distance (code_from, code_to, distance) values(%s, %s, %s)"
+                cursor.execute(sql, (code2, code1, length))
+                print(f"路径{code1} -> {code2} 长度：{length} \n路径{code2} -> {code1} 长度：{length} \n添加成功")
+                print("是否继续添加路径？(y/n)")
+                path = input()
+                if path == 'n':
+                    db.commit()
+                    campus = None
+                    campus = CampusMap()
+                    init(db,campus) # 重新载入数据
+                    break
+        else:
+            db.commit()
+            campus = None
+            campus = CampusMap()
+            init(db,campus) # 重新载入数据
+    elif function == 4:
         print("程序结束")
         break
     else:
